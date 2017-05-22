@@ -1,0 +1,37 @@
+{
+  "name": "pinsight-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "babel-preset-latest": "^6.22.0",
+    "babel-preset-react": "^6.22.0",
+    "babel-preset-stage-0": "^6.22.0",
+    "cors": "^2.8.3",
+    "dotenv": "^4.0.0",
+    "download": "^6.1.0",
+    "express": "^4.14.0",
+    "firebase": "^3.6.9",
+    "fix-orientation": "0.0.2",
+    "is-online": "^7.0.0",
+    "mongodb": "^1.4.4",
+    "mongojs": "^2.4.0",
+    "monk": "^1.0.1",
+    "onoff": "^1.1.2",
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "socket.io": "^1.7.2",
+    "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "babel-core": "^6.22.1",
+    "babel-loader": "^6.2.10",
+    "babel-preset-es2015": "^6.22.0",
+    "webpack": "^1.14.0"
+  }
+}
