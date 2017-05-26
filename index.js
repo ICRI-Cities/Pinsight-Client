@@ -62,8 +62,6 @@ app.use(cors({origin: '*'}))
 logger.info("deviceId " + deviceId);
 
 
-
-
 try {	
 
 	var GPIO = require('onoff').Gpio;
@@ -88,8 +86,7 @@ try {
 		} else {
 			
 		}			 
-		
-
+	
 	}    
 	
 	// pass the callback function as the first argument to watch()
@@ -146,7 +143,7 @@ function setSocketConnection() {
 			shutdownLeds();
 		});
 
-		s.on('questionAppeared', blinkLeds.bind(this));
+		s.on('questionAppeared', onQuestionAppeared.bind(this));
 
 		s.on('answerAppeared', function(msg) {
 			lightUpLed(msg.answer);
@@ -380,8 +377,14 @@ function lightUpLed(whichLed) {
 	}		
 }
 
-function blinkLeds() {
-	
+function onQuestionAppeared() {
+	// if connected to the internet
+	// change lastScreenChanged on Firebase
+	// ie. firebase.ref("devices/"+deviceId+"lastScreenChanged").update({
+	// cardId: currentCardId,
+	// dialogueId: currentDialogueId,
+	// timestamp: look at how to do this with firebase
+	// })
 }
 
 
