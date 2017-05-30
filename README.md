@@ -3,8 +3,13 @@
 
 ### TODO
 **High priority**
+
+Ben 
+- The device buttons become unresponsive after X(?) hours
+
+Danilo
+- Save image offline (to test)
 - Add developer dashboard (internet functionality, latest time updated...)
-- Save image offline
 - Fix orientation of images
 - Dialogue reset cycle must be different from dialogue update 
 - LED for internet functionality

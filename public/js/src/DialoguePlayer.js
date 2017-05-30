@@ -17,7 +17,7 @@ export default class DialoguePlayer extends Component {
 			cards: null,
 			currentDialogueId:0,
 			currentCardId: 0,
-			debugging: true
+			debugging: false
 		}
 
 		socket.on("buttonpressed", function(d) {
@@ -86,7 +86,7 @@ export default class DialoguePlayer extends Component {
 			currentCardId: Object.keys(currentDialogue.cards)[0],
 		});
 
-		document.body.style.background = data.devices.color;
+		// document.body.style.background = data.devices.color;
 
 	}
 
