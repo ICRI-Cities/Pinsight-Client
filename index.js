@@ -1,8 +1,8 @@
 // load environmental variables in .env file
 require('dotenv').config();
 
-// remove log file at every start to save space
 const fs = require('fs');
+// remove log file at every start to save space
 fs.stat('status.log', function(err) { 
 	if (!err) { 
 		fs.unlinkSync('status.log');
@@ -37,30 +37,33 @@ const FIREBASECONFIG = {
 };
 
 const express = require('express');
-const cors = require('cors');
 const app = express();
 const server = require('http').Server(app);
 const firebase = require("firebase");
 const io = require('socket.io')(server);
 const dns = require('dns');
 const mongojs = require('mongojs');
+
+
 const mongoDbUrl = '127.0.0.1:27017/pinsight';
 const collections = ['cards','devices', 'dialogues', 'responses'];
 const mongoDB = mongojs(mongoDbUrl, collections);
 
+mongoDB.on('error', function(e) {
+	logger.info("couldn't connect to MongoDB.", e.message, "Exiting...");
+	process.exit();
+});
+var triangulate = require('wifi-triangulate');
 var lastPressed = [0,0];
 var socket;
 var firebaseDB;
+var pinLocation;
 
 var content = {};
+var isConnected = false;
 var responseCount = 0;
 
 app.use(express.static('public'));
-// allow for CORS 
-app.use(cors({origin: '*'}))
-
-logger.info("deviceId " + deviceId);
-
 
 try {	
 
@@ -77,17 +80,20 @@ try {
 	function onButtonPressed(err, state, value) {
 
 		if(state == 0) {
-			var millis = new Date(); 
+			var millis = new Date();
+			if(debugInterval) clearInterval(debugInterval);
+			debugInterval = setInterval(checkDebug.bind(this), 3000)
 			if(millis - lastPressed[value] > 600) { 
 				lastPressed[value] = millis;
 				io.emit('buttonpressed', {answer:value, time:millis});
 				logger.info('Button ' + value + ' has pressed');
 			}
-		} else {
-			
 		}			 
-	
 	}    
+
+	function checkDebug() {
+		io.emit('debug', {isConnected: isConnected, location: location});
+	}
 	
 	// pass the callback function as the first argument to watch()
 	buttonLeft.watch(function(err,state) {onButtonPressed(err,state,0)});
@@ -101,29 +107,41 @@ try {
 
 server.listen(9000, function () {
 
-	logger.info('App listening on port 9000');
+	logger.info('Client started at http://localhost:9000');
+	logger.info("The deviceId is: " + deviceId);
 
 	setSocketConnection();
+	loadDataFromMongodb(onConnectionToMongoDb.bind(this));
 
-	loadDataFromMongodb(function() {
-
-		isConnectedToInternet(function(isConnected) {
-			if(isConnected) {
-				onInternetChecked(true);
-			} else {
-				emitData();
-			}
-		});
-
-		// keep on checking internet connection
-		setInterval(function() {
-			isConnectedToInternet(onInternetChecked);
-		}.bind(this), 10000);
-		
-	});
 
 }.bind(this));
 
+
+function onConnectionToMongoDb() {
+
+	checkInternetConnection(function() {
+		if(isConnected) {
+			
+			// try geolocate the pin
+			triangulate(function (err, location) {
+				if (err) throw err;
+				pinLocation = location;
+				logger.info("location",location)
+			})
+
+			onInternetChecked();
+		} else {
+			// emit data from the mongodb server
+			emitData();
+		}
+	});
+
+	// keep on checking internet connection
+	setInterval(function() {
+		checkInternetConnection(onInternetChecked);
+	}.bind(this), 10000);
+
+}
 
 function setSocketConnection() {
 
@@ -180,7 +198,6 @@ function updateMongoDBWithFirebase() {
 
 	function downloadIfNeeded(name, url) {
 		return new Promise((resolve, reject) => {
-			console.log("checking",url)
 			
 			fs.stat('./public/images/'+name, (err)=> { 
 				if (err) { 
@@ -200,7 +217,6 @@ function updateMongoDBWithFirebase() {
 
 	function checkImages () {
 		return new Promise((resolve, reject) => {
-			console.log("checking images")
 			const dialogues  = content.devices.dialogues;
 			var promises = [];
 			for(var i in dialogues) {
@@ -242,7 +258,7 @@ function emitData() {
 
 
 
-function onInternetChecked(isConnected) {
+function onInternetChecked() {
 
 	if(isConnected) {
 
@@ -254,7 +270,6 @@ function onInternetChecked(isConnected) {
 			// check for updates
 			firebaseDB.ref('/devices/'+deviceId+'/lastUpdated').on('value', function(s) { 
 				var lastUpdatedOnFirebase = s.val();
-				console.log(lastUpdatedOnFirebase)
 				if(content.devices == null || content.devices.lastUpdated != lastUpdatedOnFirebase){
 					updateMongoDBWithFirebase();
 				} else {
@@ -273,27 +288,34 @@ function onInternetChecked(isConnected) {
 
 function loadDataFromMongodb(callback) {
 	
-	mongoDB.cards.find({}, function(err, records){
-		
-		content["cards"] = records[0];
-		
-		mongoDB.dialogues.find({}, function(err, records){
+	try {
 
-			content["dialogues"] = records[0];
-			// logger.info("getting dialogues from mongodb: " + JSON.stringify(content[1], null, 2));
-			
-			mongoDB.devices.find({}, function(err, records){
-				
-				content["devices"] = records[0];			
-				logger.info("data retrieved from mongodb");
-				callback();
+
+		mongoDB.cards.find({}, function(err, records){
+
+			content["cards"] = records[0];
+
+			mongoDB.dialogues.find({}, function(err, records){
+
+				content["dialogues"] = records[0];
+				// logger.info("getting dialogues from mongodb: " + JSON.stringify(content[1], null, 2));
+
+				mongoDB.devices.find({}, function(err, records){
+
+					content["devices"] = records[0];			
+					logger.info("data retrieved from mongodb");
+					callback();
+
+				});
 
 			});
 
+
 		});
 
-
-	});
+	} catch(e) {
+		logger.info("Couldn't connect to mongodb");
+	}
 
 }
 
@@ -338,15 +360,17 @@ function saveResponseToFirebase() {
 }
 
 
-function isConnectedToInternet(callback) {
+function checkInternetConnection(callback) {
 	logger.info("checking  internet...")
 	isOnline().then(online => {
 		if (!online) {
 			logger.info("not connected :(")
-			callback(false);
+			isConnected = false;
+			callback();
 		} else {
 			logger.info("connected!")
-			callback(true);
+			isConnected = true;
+			callback();
 		}
 	});
 }
@@ -381,10 +405,10 @@ function onQuestionAppeared() {
 	// if connected to the internet
 	// change lastScreenChanged on Firebase
 	// ie. firebase.ref("devices/"+deviceId+"lastScreenChanged").update({
-	// cardId: currentCardId,
-	// dialogueId: currentDialogueId,
-	// timestamp: look at how to do this with firebase
-	// })
-}
+		// cardId: currentCardId,
+		// dialogueId: currentDialogueId,
+		// timestamp: look at how to do this with firebase
+		// })
+	}
 
 

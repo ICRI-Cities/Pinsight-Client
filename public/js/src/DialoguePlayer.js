@@ -12,15 +12,30 @@ export default class DialoguePlayer extends Component {
 	constructor(props) {
 		super(props);
 
+		this.state = {
+			dialogues: null,
+			cards: null,
+			currentDialogueId:0,
+			currentCardId: 0,
+			debugging: true
+		}
+
 		socket.on("buttonpressed", function(d) {
 			this.handleChange(d.answer, d.time);
 		}.bind(this));
 
 		socket.on("data", this.update.bind(this));
+		socket.on("debug", () => {
+			this.setState({
+				debugging: true
+			})
+		});
+
+
 	}
 
 
-	sendStatesToServer(cardID, dialogueID, value, time) {
+	logResponse(cardID, dialogueID, value, time) {
 		let response = {card:cardID, dialogue:dialogueID, answer:value, timestamp: time};
 		socket.emit('response', response);
 	}
@@ -72,7 +87,7 @@ export default class DialoguePlayer extends Component {
 		});
 
 		document.body.style.background = data.devices.color;
-		console.log(data.devices.color)
+
 	}
 
 	handleChange(answer, time) {
@@ -114,7 +129,7 @@ export default class DialoguePlayer extends Component {
 		
 
 		// console.log( this.state.dialogues[this.state.currentDialogueId].id)
-		this.sendStatesToServer(this.state.currentCardId, this.state.dialogues[this.state.currentDialogueId].id, answer, time);
+		this.logResponse(this.state.currentCardId, this.state.dialogues[this.state.currentDialogueId].id, answer, time);
 
 
 	} 
@@ -132,62 +147,22 @@ export default class DialoguePlayer extends Component {
 		
 	}
 
-	render() {
-		let s= this.state; 
-		if(s == null) return (<div>Loading</div>);
-
-		let currentDialogue = s.dialogues[s.currentDialogueId];
-		let card = s.cards[s.currentCardId];
-
-
-		let getContent = () => {
-			if(!card.isImage) {
-				return (
-					<div id="Dialogue-Content">
-					<h1 ref="title">
-					{
-						letters.map( (letter,i) =><span className="hidden" key={i + Math.random()}>{letter + " "}</span>)
-					}
-					</h1>
-					</div>
-					)
-			} else {
-				return <img src={this.getImage(card.imageFilename)} ref="img" className="hidden" height="500" />
-			}
-		}
-		var letters = card.title.split(" ");
-		return (
-			<div >
-			{ getContent() }
-			<div id="Dialogue-Answers" className="buttons">
-			<button className="hidden" ref="buttonLeft" id="buttonLeft"  onClick={() => this.handleChange(0, new Date())}></button>
-			<button className="hidden" ref="buttonRight" id="buttonRight"  onClick={() => this.handleChange(1, new Date())}></button>
-			</div>
-			</div>
-			)
-	}
-
-
 	getBase64Image(img) {
-		// Create an empty canvas element
 		var canvas = document.createElement("canvas");
 		canvas.width = img.width;
 		canvas.height = img.height;
 
-		// Copy the image contents to the canvas
 		var ctx = canvas.getContext("2d");
 		ctx.drawImage(img, 0, 0);
-
-		// Get the data-URL formatted image
-		// Firefox supports PNG and JPEG. You could check img.src to
-		// guess the original format, but be aware the using "image/jpg"
-		// will re-encode the image.
 		var dataURL = canvas.toDataURL("image/png");
 
 		return dataURL
 	}
 
 	componentDidUpdate() {
+
+		if(this.state.debugging) return;
+
 		// reset all the text and hide it
 		var i = 0;
 		var domTitle = this.refs.title;
@@ -241,4 +216,56 @@ export default class DialoguePlayer extends Component {
 		},1000);
 		socket.emit('questionAppeared', {blink:true});
 	}
+
+
+	render() {
+
+		let s = this.state; 
+		if(s.dialogues == null) return (<div>Loading</div>);
+
+		let currentDialogue = s.dialogues[s.currentDialogueId];
+		let card = s.cards[s.currentCardId];
+
+
+		let getContent = () => {
+			
+			if(this.state.debugging) {
+				return (
+						<div id="Dialogue-Content">
+						<h1>debugging</h1>
+						</div>
+				)
+			} else {
+
+				if(!card.isImage) {
+					return (
+						<div id="Dialogue-Content">
+						<h1 ref="title">
+						{
+							letters.map( (letter,i) =><span className="hidden" key={i + Math.random()}>{letter + " "}</span>)
+						}
+						</h1>
+						</div>
+						)
+				} else {
+					return <img src={this.getImage(card.imageFilename)} ref="img" className="hidden" height="500" />
+				}
+			}
+
+		}
+		var letters = card.title.split(" ");
+
+		return (
+			<div >
+			{ getContent() }
+			<div id="Dialogue-Answers" className="buttons">
+			<button className="hidden" ref="buttonLeft" id="buttonLeft"  onClick={() => this.handleChange(0, new Date())}></button>
+			<button className="hidden" ref="buttonRight" id="buttonRight"  onClick={() => this.handleChange(1, new Date())}></button>
+			</div>
+			</div>
+			)
+	}
+
+
+
 }
