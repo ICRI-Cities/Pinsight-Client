@@ -81,8 +81,8 @@ try {
 
 		if(state == 0) {
 			var millis = new Date();
-			if(debugInterval) clearInterval(debugInterval);
-			debugInterval = setInterval(checkDebug.bind(this), 3000)
+			// if(debugInterval) clearInterval(debugInterval);
+			// debugInterval = setInterval(checkDebug.bind(this), 3000)
 			if(millis - lastPressed[value] > 600) { 
 				lastPressed[value] = millis;
 				io.emit('buttonpressed', {answer:value, time:millis});
