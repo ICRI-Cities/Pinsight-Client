@@ -3,6 +3,8 @@
 
 ### TODO
 **High priority**
+Can
+
 
 Ben 
 - The device buttons become unresponsive after X(?) hours
