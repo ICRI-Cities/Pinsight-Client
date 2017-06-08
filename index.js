@@ -322,6 +322,9 @@ function loadDataFromMongodb(callback) {
 
 
 function updateResponseLog(card, dialogue, answer, timestamp) {
+
+	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lastInteracted").set(firebase.database.ServerValue.TIMESTAMP);
+
 	mongoDB.responses.save({deviceId:deviceId, cardId:card, dialogueId:dialogue, value:answer, time:timestamp},
 		function(err, saved) {
 			if( err || !saved ) logger.info("Response not saved");
