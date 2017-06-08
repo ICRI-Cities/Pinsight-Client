@@ -1,4 +1,4 @@
-const INTERNET_CHECK_DELAY = 60000;
+const INTERNET_CHECK_DELAY = 5000;
 
 // load environmental variables in .env file
 require('dotenv').config();
@@ -63,7 +63,7 @@ var pinLocation;
 
 var content = {};
 var isConnected = false;
-var responseCount = 0;
+var mongoDbResponsesCount = 0;
 
 app.use(express.static('public'));
 
@@ -249,8 +249,6 @@ function updateMongoDBWithFirebase() {
 }
 
 
-
-
 function emitData() {
 	logger.info("emitting data");
 	// logger.info("emitting data: " + JSON.stringify(content, null, 2));
@@ -325,7 +323,7 @@ function loadDataFromMongodb(callback) {
 
 function updateResponseLog(card, dialogue, answer, timestamp) {
 
-	mongoDB.responses.save({deviceId:deviceId, cardId:card, dialogueId:dialogue, value:answer, time:timestamp},
+	mongoDB.responses.save({deviceId:deviceId, cardId:card, dialogueId:dialogue, value:answer, pi_timestamp:timestamp},
 		function(err, saved) {
 			if( err || !saved ) logger.info("Response not saved");
 			else {
@@ -338,27 +336,57 @@ function updateResponseLog(card, dialogue, answer, timestamp) {
 
 function saveResponseToFirebase() {
 
-	mongoDB.responses.find({}, function(err, records){
+	if(!firebaseDB) return;
+
+	firebaseDB.ref("devices/"+deviceId+"/lastResponseId").once("value", function(s) {
 		
-		var recordsObject = {};
+		var lastFirebaseResponseId = s.val();
+		console.log(lastFirebaseResponseId)
+		mongoDB.responses.find({}).sort({"_id":1}, function(err, records){
 
-		records.forEach(function(r) {
-			recordsObject[r._id] = r;
-		})
+			var lastResponseId = records[records.length -1]._id;
+			if(lastFirebaseResponseId != lastResponseId) {
+				
+				var lastIndex = 0;
+				
+				// find the last firebase response in mondodb
+				for (var i = 0; i < records.length; i++) {
+					if(records[i]._id.toString() == lastFirebaseResponseId) {
+						lastIndex = i; 
+						break;
+					}
+				}
+
+				if(lastIndex == 0) {
+					console.log("WARNING: couldn't find firebase record in mongodb. Adding all the responses");
+				}
 
 
-		if (err) logger.info(err);
-		else {
-			if (responseCount < records.length) {
-				logger.info("saving responses to firebase");
-				firebaseDB.ref('responses/').update(recordsObject);
-				responseCount = records.length;
+
+				nonInsertedResponses = records.splice(lastIndex+1);
+				console.log(nonInsertedResponses.length + " responses not added")
+
+				var updates = {};
+				var r;
+				for (var i = 0; i < nonInsertedResponses.length; i++) {
+					r = nonInsertedResponses[i];
+					updates[r._id] = r;
+					updates[r._id].time = firebase.database.ServerValue.TIMESTAMP;
+				}
+		
+
+				firebaseDB.ref("devices/"+deviceId+"/lastResponseId").set(r._id.toString())
+
+				firebaseDB.ref("responses").update(updates, function() {
+					console.log("all done")
+				});
+
 			} else {
-				// logger.info("no need to upload responses");
+				console.log("no new responses to add")
 			}
 
-		}
-	});
+		})
+	})
 }
 
 
@@ -406,7 +434,7 @@ function lightUpLed(whichLed) {
 function onQuestionAppeared() {
 	// if connected to the internet
 	// change lastScreenChanged on Firebase
-	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lastScreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
+	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lascreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
 	
 }
 

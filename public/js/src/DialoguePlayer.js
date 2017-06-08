@@ -3,7 +3,7 @@ import fixOrientation from 'fix-orientation';
 import { Component } from 'react'
 
 var socket = io.connect(); 
-const TIMEOUT_SLEEP = 90000;
+const TIMEOUT_SLEEP = 60000;
 let data;
 let sleepTimeout;
 
@@ -19,9 +19,6 @@ export default class DialoguePlayer extends Component {
 			currentCardId: 0,
 			debugging: false
 		}
-
-		
-
 
 	}
 
@@ -115,6 +112,7 @@ export default class DialoguePlayer extends Component {
 
 	handleChange(answer, time) {
 
+
 		this.startTimerForSleep();
 
 		let card = this.state.cards[this.state.currentCardId];
@@ -127,7 +125,6 @@ export default class DialoguePlayer extends Component {
 
 		var s = this.state;
 
-		
 		if(linkedCardIndex == -1) {
 			if (chosenAnswerLabel == "" && theOtherAnswerLink != -1) {
 				console.log ("Blank answer links to nothing in the middle of dialogue");
