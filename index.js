@@ -110,7 +110,6 @@ server.listen(9000, function () {
 	logger.info('Client started at http://localhost:9000');
 	logger.info("The deviceId is: " + deviceId);
 
-	setSocketConnection();
 	loadDataFromMongodb(onConnectionToMongoDb.bind(this));
 
 
@@ -118,6 +117,8 @@ server.listen(9000, function () {
 
 
 function onConnectionToMongoDb() {
+
+	setSocketConnection();
 
 	checkInternetConnection(function() {
 		if(isConnected) {
@@ -149,7 +150,10 @@ function setSocketConnection() {
 	io.on('connection', function(s) {
 
 		logger.info("on socket connection");
-		checkContentBeforeEmitting();
+
+		s.on('contentRequest',function(){
+			emitData();
+		}.bind(this))
 
 		s.on('response', function(msg) {
 			logger.info("received response " + JSON.stringify(msg.answer));	
@@ -172,11 +176,6 @@ function setSocketConnection() {
 
 }
 
-function checkContentBeforeEmitting() {
-	if(content["dialogues"] != null && content["devices"] != null && content["cards"] != null) {
-		emitData();
-	} 
-}
 
 
 function updateMongoDBWithFirebase() {

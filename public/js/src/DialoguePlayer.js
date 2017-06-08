@@ -20,17 +20,40 @@ export default class DialoguePlayer extends Component {
 			debugging: false
 		}
 
+		
+
+
+	}
+
+	componentDidMount() {
+		
 		socket.on("buttonpressed", function(d) {
 			this.handleChange(d.answer, d.time);
 		}.bind(this));
 
-		socket.on("data", this.update.bind(this));
+		socket.on("data", this.onDataReceived.bind(this));
 		socket.on("debug", () => {
 			this.setState({
 				debugging: true
 			})
 		});
 
+		socket.emit('contentRequest', {});
+
+	}
+
+
+	onDataReceived(d) {
+
+		if(this.refs && this.refs.content != null) {
+			this.refs.content.classList = "appearing";
+			this.update(d);
+			setTimeout(()=> {
+				this.refs.content.classList = "appeared";
+			}, 500)
+		} else {
+			this.update(d);
+		}
 
 	}
 
@@ -231,15 +254,15 @@ export default class DialoguePlayer extends Component {
 			
 			if(this.state.debugging) {
 				return (
-						<div id="Dialogue-Content">
-						<h1>debugging</h1>
-						</div>
-				)
+					<div id="Dialogue-Content">
+					<h1>debugging</h1>
+					</div>
+					)
 			} else {
 
 				if(!card.isImage) {
 					return (
-						<div id="Dialogue-Content">
+						<div ref="content" id="Dialogue-Content">
 						<h1 ref="title">
 						{
 							letters.map( (letter,i) =><span className="hidden" key={i + Math.random()}>{letter + " "}</span>)

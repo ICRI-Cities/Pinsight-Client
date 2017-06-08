@@ -9,9 +9,9 @@ Ben
 
 Danilo
 - Save image offline (to test)
+- Dialogue reset cycle must be different from dialogue update 
 - Add developer dashboard (internet functionality, latest time updated...)
 - Fix orientation of images
-- Dialogue reset cycle must be different from dialogue update 
 - LED for internet functionality
 - Shut the LEDs when answers disappear after timeout, light them up together when answers pop back 
 
