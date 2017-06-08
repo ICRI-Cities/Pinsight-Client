@@ -109,7 +109,7 @@ export default class DialoguePlayer extends Component {
 			currentCardId: Object.keys(currentDialogue.cards)[0],
 		});
 
-		document.body.style.background = data.devices.color;
+		// document.body.style.background = data.devices.color;
 
 	}
 

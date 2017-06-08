@@ -325,8 +325,6 @@ function loadDataFromMongodb(callback) {
 
 function updateResponseLog(card, dialogue, answer, timestamp) {
 
-	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lastInteracted").set(firebase.database.ServerValue.TIMESTAMP);
-
 	mongoDB.responses.save({deviceId:deviceId, cardId:card, dialogueId:dialogue, value:answer, time:timestamp},
 		function(err, saved) {
 			if( err || !saved ) logger.info("Response not saved");
@@ -408,11 +406,8 @@ function lightUpLed(whichLed) {
 function onQuestionAppeared() {
 	// if connected to the internet
 	// change lastScreenChanged on Firebase
-	// ie. firebase.ref("devices/"+deviceId+"lastScreenChanged").update({
-		// cardId: currentCardId,
-		// dialogueId: currentDialogueId,
-		// timestamp: look at how to do this with firebase
-		// })
-	}
+	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lastScreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
+	
+}
 
 
