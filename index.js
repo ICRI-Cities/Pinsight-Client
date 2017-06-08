@@ -1,3 +1,5 @@
+const INTERNET_CHECK_DELAY = 60000;
+
 // load environmental variables in .env file
 require('dotenv').config();
 
@@ -140,7 +142,7 @@ function onConnectionToMongoDb() {
 	// keep on checking internet connection
 	setInterval(function() {
 		checkInternetConnection(onInternetChecked);
-	}.bind(this), 10000);
+	}.bind(this), INTERNET_CHECK_DELAY);
 
 }
 
