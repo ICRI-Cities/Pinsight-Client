@@ -343,6 +343,8 @@ function saveResponseToFirebase() {
 		var lastFirebaseResponseId = s.val();
 		console.log(lastFirebaseResponseId)
 		mongoDB.responses.find({}).sort({"_id":1}, function(err, records){
+			
+			if(records.length == 0) return;
 
 			var lastResponseId = records[records.length -1]._id;
 			if(lastFirebaseResponseId != lastResponseId) {
