@@ -434,7 +434,7 @@ function lightUpLed(whichLed) {
 function onQuestionAppeared() {
 	// if connected to the internet
 	// change lastScreenChanged on Firebase
-	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lascreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
+	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lastScreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
 	
 }
 
