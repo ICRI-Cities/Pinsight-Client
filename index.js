@@ -361,11 +361,11 @@ function saveResponseToFirebase() {
 
 				if(lastIndex == 0) {
 					console.log("WARNING: couldn't find firebase record in mongodb. Adding all the responses");
+					nonInsertedResponses = records;
+				} else {
+					nonInsertedResponses = records.splice(lastIndex+1);
 				}
 
-
-
-				nonInsertedResponses = records.splice(lastIndex+1);
 				console.log(nonInsertedResponses.length + " responses not added")
 
 				var updates = {};
