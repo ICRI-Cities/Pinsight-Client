@@ -185,6 +185,7 @@ function updateMongoDBWithFirebase() {
 	logger.info("content has changed on the server! download data from firebase and update mongodb");
 
 	function retrieve (url, key) {  
+
 		return new Promise((resolve, reject) => {
 			firebaseDB.ref(url).once('value', (s)=> {
 				var data = s.val();
@@ -241,7 +242,7 @@ function updateMongoDBWithFirebase() {
 	Promise.all([  
 		retrieve('/dialogues', 'dialogues'),
 		retrieve('/cards', 'cards'),
-		retrieve('/devices/'+deviceId, 'devices'),
+		retrieve('/devices/'+ (deviceId == -1 ? "0" : deviceId) , 'devices'),
 		checkImages()
 		])
 	.then(() => emitData())
@@ -266,16 +267,20 @@ function onInternetChecked() {
 			firebase.initializeApp(FIREBASECONFIG);
 			firebaseDB = firebase.database();
 
-			// check for updates
-			firebaseDB.ref('/devices/'+deviceId+'/lastUpdated').on('value', function(s) { 
-				var lastUpdatedOnFirebase = s.val();
-				if(content.devices == null || content.devices.lastUpdated != lastUpdatedOnFirebase){
-					updateMongoDBWithFirebase();
-				} else {
-					logger.info("no need to update content");
-				}
+			if(deviceId != -1) {
+				// check for updates
+				firebaseDB.ref('/devices/'+deviceId+'/lastUpdated').on('value', function(s) { 
+					var lastUpdatedOnFirebase = s.val();
+					if(content.devices == null || content.devices.lastUpdated != lastUpdatedOnFirebase){
+						updateMongoDBWithFirebase();
+					} else {
+						logger.info("no need to update content");
+					}
 
-			});
+				});
+			} else {
+				updateMongoDBWithFirebase();
+			}
 
 		}
 		
@@ -336,17 +341,22 @@ function updateResponseLog(card, dialogue, answer, timestamp) {
 
 function saveResponseToFirebase() {
 
-	if(!firebaseDB) return;
+	if(!firebaseDB || deviceId == -1) return;
 
 	firebaseDB.ref("devices/"+deviceId+"/lastResponseId").once("value", function(s) {
 		
 		var lastFirebaseResponseId = s.val();
-		console.log(lastFirebaseResponseId)
 		mongoDB.responses.find({}).sort({"_id":1}, function(err, records){
 			
-			if(records.length == 0) return;
+
+
+			if(records.length == 0) {
+				console.log("no responses found")
+				return;
+			}
 
 			var lastResponseId = records[records.length -1]._id;
+
 			if(lastFirebaseResponseId != lastResponseId) {
 				
 				var lastIndex = 0;
@@ -375,7 +385,7 @@ function saveResponseToFirebase() {
 					updates[r._id] = r;
 					updates[r._id].time = firebase.database.ServerValue.TIMESTAMP;
 				}
-		
+
 
 				firebaseDB.ref("devices/"+deviceId+"/lastResponseId").set(r._id.toString())
 
@@ -427,7 +437,6 @@ function lightUpLed(whichLed) {
 			setTimeout(function() {
 				ledLeft.write(1);
 				ledRight.write(1);				
-				// console.log("blinks - up");
 			}.bind(this), 250);
 		}.bind(this), 300);
 	}		
@@ -436,7 +445,7 @@ function lightUpLed(whichLed) {
 function onQuestionAppeared() {
 	// if connected to the internet
 	// change lastScreenChanged on Firebase
-	if(firebaseDB) firebaseDB.ref("/devices/"+deviceId+"/lastScreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
+	if(firebaseDB && deviceId != -1) firebaseDB.ref("/devices/"+deviceId+"/lastScreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
 	
 }
 

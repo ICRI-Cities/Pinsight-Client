@@ -268,29 +268,11 @@ To continuosly build the app in development mode:
 webpack --watch
 ```
 
+### Tests
 
+- Check both buttons are working
+- Check if response is recorded on database 
 
-
-### database sync diagram
-
-```flow
-
-st=>start: Start
-e=>end
-op1=>operation: Start mongodb
-op1b=>operation: push responses to firebase
-op2=>operation: every X seconds 
-check connection
-c1=>condition: connected?
-c3=>condition: needs content update?
-op3=>operation: get data from firebase
-op4=>operation: start cycle dialogues
-op5=>operation: update content on mongodb
-
-
-
-st->op1->op2->c1
-c1(yes)->op1b->c3
-c1(no)->op2
-c3(yes)->op3->op4->op5
-```
+Offline tests
+- Check online / offline change in CMS
+- Check if response recorded offline are then stored on database when online
