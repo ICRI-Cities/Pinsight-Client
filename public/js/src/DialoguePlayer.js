@@ -56,6 +56,7 @@ export default class DialoguePlayer extends Component {
 
 
 	logResponse(cardID, dialogueID, value, time) {
+		console.log("logging response")
 		let response = {card:cardID, dialogue:dialogueID, answer:value, timestamp: time};
 		socket.emit('response', response);
 	}
