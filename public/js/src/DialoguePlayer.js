@@ -55,11 +55,6 @@ export default class DialoguePlayer extends Component {
 	}
 
 
-	logResponse(cardID, dialogueID, value, time) {
-		console.log("logging response")
-		let response = {card:cardID, dialogue:dialogueID, answer:value, timestamp: time};
-		socket.emit('response', response);
-	}
 
 	startTimerForSleep() {
 		if(sleepTimeout) clearTimeout(sleepTimeout);
@@ -116,6 +111,10 @@ export default class DialoguePlayer extends Component {
 
 		this.startTimerForSleep();
 
+		console.log("logging response")
+		let response = {card:this.state.currentCardId, dialogue:this.state.dialogues[this.state.currentDialogueId].id, answer:answer, timestamp: time};
+		socket.emit('response', response);
+
 		let card = this.state.cards[this.state.currentCardId];
 
 		let chosenAnswer = card.answers[answer];
@@ -135,8 +134,6 @@ export default class DialoguePlayer extends Component {
 				var nd = s.currentDialogueId+1;
 				if(nd == s.dialogues.length) nd = 0;
 				const currentDialogue = s.dialogues[nd];
-
-
 				this.setState({
 					currentDialogueId: nd,
 					currentCardId: Object.keys(currentDialogue.cards)[0]
@@ -150,8 +147,7 @@ export default class DialoguePlayer extends Component {
 		
 
 		// console.log( this.state.dialogues[this.state.currentDialogueId].id)
-		this.logResponse(this.state.currentCardId, this.state.dialogues[this.state.currentDialogueId].id, answer, time);
-
+	
 
 	} 
 
