@@ -183,7 +183,7 @@ sudo nano /etc/rc.local
 add the following right at the beginning of the file (before #Print IP address):
 
 ```
-sudo python /home/pi/Desktop/pinsight/code/client/shutdown_pi.py
+sudo python /home/pi/Desktop/pinsight-client/shutdown_pi.py
 
 ```
 The soft shutdown button is set as GPIO 20 (physical pin 38). Please see image below.
