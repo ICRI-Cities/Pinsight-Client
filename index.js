@@ -1,3 +1,5 @@
+const INTERNET_CHECK_DELAY = 5000;
+
 // load environmental variables in .env file
 require('dotenv').config();
 
@@ -61,7 +63,7 @@ var pinLocation;
 
 var content = {};
 var isConnected = false;
-var responseCount = 0;
+var mongoDbResponsesCount = 0;
 
 app.use(express.static('public'));
 
@@ -110,7 +112,6 @@ server.listen(9000, function () {
 	logger.info('Client started at http://localhost:9000');
 	logger.info("The deviceId is: " + deviceId);
 
-	setSocketConnection();
 	loadDataFromMongodb(onConnectionToMongoDb.bind(this));
 
 
@@ -118,6 +119,8 @@ server.listen(9000, function () {
 
 
 function onConnectionToMongoDb() {
+
+	setSocketConnection();
 
 	checkInternetConnection(function() {
 		if(isConnected) {
@@ -139,7 +142,7 @@ function onConnectionToMongoDb() {
 	// keep on checking internet connection
 	setInterval(function() {
 		checkInternetConnection(onInternetChecked);
-	}.bind(this), 10000);
+	}.bind(this), INTERNET_CHECK_DELAY);
 
 }
 
@@ -149,7 +152,10 @@ function setSocketConnection() {
 	io.on('connection', function(s) {
 
 		logger.info("on socket connection");
-		checkContentBeforeEmitting();
+
+		s.on('contentRequest',function(){
+			emitData();
+		}.bind(this))
 
 		s.on('response', function(msg) {
 			logger.info("received response " + JSON.stringify(msg.answer));	
@@ -172,11 +178,6 @@ function setSocketConnection() {
 
 }
 
-function checkContentBeforeEmitting() {
-	if(content["dialogues"] != null && content["devices"] != null && content["cards"] != null) {
-		emitData();
-	} 
-}
 
 
 function updateMongoDBWithFirebase() {
@@ -184,6 +185,7 @@ function updateMongoDBWithFirebase() {
 	logger.info("content has changed on the server! download data from firebase and update mongodb");
 
 	function retrieve (url, key) {  
+
 		return new Promise((resolve, reject) => {
 			firebaseDB.ref(url).once('value', (s)=> {
 				var data = s.val();
@@ -240,14 +242,12 @@ function updateMongoDBWithFirebase() {
 	Promise.all([  
 		retrieve('/dialogues', 'dialogues'),
 		retrieve('/cards', 'cards'),
-		retrieve('/devices/'+deviceId, 'devices'),
+		retrieve('/devices/'+ (deviceId == -1 ? "0" : deviceId) , 'devices'),
 		checkImages()
 		])
 	.then(() => emitData())
 	.catch((err) => console.log(err))
 }
-
-
 
 
 function emitData() {
@@ -267,16 +267,20 @@ function onInternetChecked() {
 			firebase.initializeApp(FIREBASECONFIG);
 			firebaseDB = firebase.database();
 
-			// check for updates
-			firebaseDB.ref('/devices/'+deviceId+'/lastUpdated').on('value', function(s) { 
-				var lastUpdatedOnFirebase = s.val();
-				if(content.devices == null || content.devices.lastUpdated != lastUpdatedOnFirebase){
-					updateMongoDBWithFirebase();
-				} else {
-					logger.info("no need to update content");
-				}
+			if(deviceId != -1) {
+				// check for updates
+				firebaseDB.ref('/devices/'+deviceId+'/lastUpdated').on('value', function(s) { 
+					var lastUpdatedOnFirebase = s.val();
+					if(content.devices == null || content.devices.lastUpdated != lastUpdatedOnFirebase){
+						updateMongoDBWithFirebase();
+					} else {
+						logger.info("no need to update content");
+					}
 
-			});
+				});
+			} else {
+				updateMongoDBWithFirebase();
+			}
 
 		}
 		
@@ -323,7 +327,8 @@ function loadDataFromMongodb(callback) {
 
 
 function updateResponseLog(card, dialogue, answer, timestamp) {
-	mongoDB.responses.save({deviceId:deviceId, cardId:card, dialogueId:dialogue, value:answer, time:timestamp},
+
+	mongoDB.responses.save({deviceId:deviceId, cardId:card, dialogueId:dialogue, value:answer, pi_timestamp:timestamp},
 		function(err, saved) {
 			if( err || !saved ) logger.info("Response not saved");
 			else {
@@ -336,27 +341,64 @@ function updateResponseLog(card, dialogue, answer, timestamp) {
 
 function saveResponseToFirebase() {
 
-	mongoDB.responses.find({}, function(err, records){
+	if(!firebaseDB || deviceId == -1) return;
+
+	firebaseDB.ref("devices/"+deviceId+"/lastResponseId").once("value", function(s) {
 		
-		var recordsObject = {};
-
-		records.forEach(function(r) {
-			recordsObject[r._id] = r;
-		})
+		var lastFirebaseResponseId = s.val();
+		mongoDB.responses.find({}).sort({"_id":1}, function(err, records){
+			
 
 
-		if (err) logger.info(err);
-		else {
-			if (responseCount < records.length) {
-				logger.info("saving responses to firebase");
-				firebaseDB.ref('responses/').update(recordsObject);
-				responseCount = records.length;
-			} else {
-				// logger.info("no need to upload responses");
+			if(records.length == 0) {
+				console.log("no responses found")
+				return;
 			}
 
-		}
-	});
+			var lastResponseId = records[records.length -1]._id;
+
+			if(lastFirebaseResponseId != lastResponseId) {
+				
+				var lastIndex = 0;
+				
+				// find the last firebase response in mondodb
+				for (var i = 0; i < records.length; i++) {
+					if(records[i]._id.toString() == lastFirebaseResponseId) {
+						lastIndex = i; 
+						break;
+					}
+				}
+
+				if(lastIndex == 0) {
+					console.log("WARNING: couldn't find firebase record in mongodb. Adding all the responses");
+					nonInsertedResponses = records;
+				} else {
+					nonInsertedResponses = records.splice(lastIndex+1);
+				}
+
+				console.log(nonInsertedResponses.length + " responses not added")
+
+				var updates = {};
+				var r;
+				for (var i = 0; i < nonInsertedResponses.length; i++) {
+					r = nonInsertedResponses[i];
+					updates[r._id] = r;
+					updates[r._id].time = firebase.database.ServerValue.TIMESTAMP;
+				}
+
+
+				firebaseDB.ref("devices/"+deviceId+"/lastResponseId").set(r._id.toString())
+
+				firebaseDB.ref("responses").update(updates, function() {
+					console.log("all done")
+				});
+
+			} else {
+				console.log("no new responses to add")
+			}
+
+		})
+	})
 }
 
 
@@ -395,7 +437,6 @@ function lightUpLed(whichLed) {
 			setTimeout(function() {
 				ledLeft.write(1);
 				ledRight.write(1);				
-				// console.log("blinks - up");
 			}.bind(this), 250);
 		}.bind(this), 300);
 	}		
@@ -404,11 +445,8 @@ function lightUpLed(whichLed) {
 function onQuestionAppeared() {
 	// if connected to the internet
 	// change lastScreenChanged on Firebase
-	// ie. firebase.ref("devices/"+deviceId+"lastScreenChanged").update({
-		// cardId: currentCardId,
-		// dialogueId: currentDialogueId,
-		// timestamp: look at how to do this with firebase
-		// })
-	}
+	if(firebaseDB && deviceId != -1) firebaseDB.ref("/devices/"+deviceId+"/lastScreenChanged").set(firebase.database.ServerValue.TIMESTAMP);
+	
+}
 
 

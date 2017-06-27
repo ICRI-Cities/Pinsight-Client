@@ -13,7 +13,6 @@
 			font-family: 'Ruluko';
 			src:url(Ruluko-Regular.woff);
 		}
-
 		
 		body * {
 			font-family: 'Ruluko', sans-serif;
@@ -43,6 +42,15 @@
 			height: 520px;
 			position: relative;
 			top: 0;
+		}
+
+		#Dialogue-Content.appearing {
+			transform: translate3d(0, -100%, 0);
+		}
+
+		#Dialogue-Content.appeared {
+			transition: transform 1s ease;
+			transform: translate3d(0, 0, 0);
 		}
 
 		h1 {

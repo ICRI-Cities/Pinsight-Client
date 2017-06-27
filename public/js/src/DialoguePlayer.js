@@ -3,7 +3,7 @@ import fixOrientation from 'fix-orientation';
 import { Component } from 'react'
 
 var socket = io.connect(); 
-const TIMEOUT_SLEEP = 90000;
+const TIMEOUT_SLEEP = 60000;
 let data;
 let sleepTimeout;
 
@@ -20,25 +20,41 @@ export default class DialoguePlayer extends Component {
 			debugging: false
 		}
 
+	}
+
+	componentDidMount() {
+		
 		socket.on("buttonpressed", function(d) {
 			this.handleChange(d.answer, d.time);
 		}.bind(this));
 
-		socket.on("data", this.update.bind(this));
+		socket.on("data", this.onDataReceived.bind(this));
 		socket.on("debug", () => {
 			this.setState({
 				debugging: true
 			})
 		});
 
+		socket.emit('contentRequest', {});
 
 	}
 
 
-	logResponse(cardID, dialogueID, value, time) {
-		let response = {card:cardID, dialogue:dialogueID, answer:value, timestamp: time};
-		socket.emit('response', response);
+	onDataReceived(d) {
+
+		if(this.refs && this.refs.content != null) {
+			this.refs.content.classList = "appearing";
+			this.update(d);
+			setTimeout(()=> {
+				this.refs.content.classList = "appeared";
+			}, 500)
+		} else {
+			this.update(d);
+		}
+
 	}
+
+
 
 	startTimerForSleep() {
 		if(sleepTimeout) clearTimeout(sleepTimeout);
@@ -92,7 +108,12 @@ export default class DialoguePlayer extends Component {
 
 	handleChange(answer, time) {
 
+
 		this.startTimerForSleep();
+
+		console.log("logging response")
+		let response = {card:this.state.currentCardId, dialogue:this.state.dialogues[this.state.currentDialogueId].id, answer:answer, timestamp: time};
+		socket.emit('response', response);
 
 		let card = this.state.cards[this.state.currentCardId];
 
@@ -104,7 +125,6 @@ export default class DialoguePlayer extends Component {
 
 		var s = this.state;
 
-		
 		if(linkedCardIndex == -1) {
 			if (chosenAnswerLabel == "" && theOtherAnswerLink != -1) {
 				console.log ("Blank answer links to nothing in the middle of dialogue");
@@ -114,8 +134,6 @@ export default class DialoguePlayer extends Component {
 				var nd = s.currentDialogueId+1;
 				if(nd == s.dialogues.length) nd = 0;
 				const currentDialogue = s.dialogues[nd];
-
-
 				this.setState({
 					currentDialogueId: nd,
 					currentCardId: Object.keys(currentDialogue.cards)[0]
@@ -129,8 +147,7 @@ export default class DialoguePlayer extends Component {
 		
 
 		// console.log( this.state.dialogues[this.state.currentDialogueId].id)
-		this.logResponse(this.state.currentCardId, this.state.dialogues[this.state.currentDialogueId].id, answer, time);
-
+	
 
 	} 
 
@@ -231,15 +248,15 @@ export default class DialoguePlayer extends Component {
 			
 			if(this.state.debugging) {
 				return (
-						<div id="Dialogue-Content">
-						<h1>debugging</h1>
-						</div>
-				)
+					<div id="Dialogue-Content">
+					<h1>debugging</h1>
+					</div>
+					)
 			} else {
 
 				if(!card.isImage) {
 					return (
-						<div id="Dialogue-Content">
+						<div ref="content" id="Dialogue-Content">
 						<h1 ref="title">
 						{
 							letters.map( (letter,i) =><span className="hidden" key={i + Math.random()}>{letter + " "}</span>)

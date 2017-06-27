@@ -1,6 +1,6 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
 data/**
-dist/images/**
+**/dist/images/**
 status.log
 .env
 node_modules/**
