@@ -69,7 +69,6 @@ app.use(express.static('public'));
 
 try {	
 
-
 	var GPIO = require('onoff').Gpio;
 	//Button 1 on GPIO 3 = physical pin 5
 	//Button 2 on GPIO 4 = physical pin 7	
@@ -114,7 +113,6 @@ server.listen(9000, function () {
 	logger.info("The deviceId is: " + deviceId);
 
 	loadDataFromMongodb(onConnectionToMongoDb.bind(this));
-
 
 }.bind(this));
 
@@ -284,6 +282,10 @@ function onInternetChecked() {
 			} else {
 				updateMongoDBWithFirebase();
 			}
+
+
+			// generateLogFilesCsv();
+
 
 		}
 		
@@ -457,26 +459,68 @@ function onQuestionAppeared() {
 *	Below are all functioins to query logs of the Olympic Park deployment from the firebase, not related to the Pin client. 
 *	To generate logs, call the method generateLogFilesCsv().
 --------------------------------------------------------------------------------------------------------*/
+var contentToWrite;
+var allDialogues;
 
 function generateLogFilesCsv() {
-	var contentToWrite = "TimeSlot,Device,DialogueId,CardId,Title,AnswerL,Lclick,AnswerR,Rclick\n";
-	var allDialogues;
+	allDialogues;
+
+	console.log("===== started =====");
+
+	setTimeout(function() {
+		writeToCsv(contentToWrite);
+	}.bind(this), 30000);
+
+	// getAggregatedLogsPerTimeslot();
+	// getAggregatedLogsForWholeTime();
+	getAllLogsForChosenDialogues();
+}
+
+function getAllLogsForChosenDialogues() {
+	contentToWrite = "DialogueId, TimeStamp, CardId, Title, ResponseValue\n";
+	var dialoguesToLookFor = ['-Kpa5SHdoTFP-mstQEBL', '-KpeJ00OKOU3t2GMEroI', '-Kpe5I7ECXXq9cBL9EDq', '-KpeJR-U6x6Vo3M1aEy4'];
+	for (var i = 0; i < dialoguesToLookFor.length; i++) {
+		getResponsesByDialogueID(dialoguesToLookFor[i]);
+	}
+}
+
+
+function getAggregatedLogsForWholeTime() {
+	contentToWrite = "TimeSlot,Device,DialogueId,CardId,Title,AnswerL,Lclick,AnswerR,Rclick\n";
 
 	firebaseDB.ref("dialogues").once('value', function(snapshot){
 		allDialogues = snapshot.val();
 
-		console.log("===== started =====");
+		// console.log("===== started =====");
 
-		setTimeout(function() {
-			writeToCsv(contentToWrite);
-		}.bind(this), 30000);
+		// setTimeout(function() {
+		// 	writeToCsv(contentToWrite);
+		// }.bind(this), 30000);
+
+		var timeSlots = ['2017-06-18T11:00', '2017-06-18T12:00', '2017-06-18T13:00', '2017-06-18T14:00', '2017-06-18T15:00', '2017-06-18T16:00', '2017-06-18T17:00'];
+
+		getAllResponsesPerCard(timeSlots[0], timeSlots[timeSlots.length-1]);
+	});	
+}
+
+function getAggregatedLogsPerTimeslot() {
+	contentToWrite = "TimeSlot,Device,DialogueId,CardId,Title,AnswerL,Lclick,AnswerR,Rclick\n";
+
+	firebaseDB.ref("dialogues").once('value', function(snapshot){
+		allDialogues = snapshot.val();
+
+		// console.log("===== started =====");
+
+		// setTimeout(function() {
+		// 	writeToCsv(contentToWrite);
+		// }.bind(this), 30000);
 
 		var timeSlots = ['2017-06-18T11:00', '2017-06-18T12:00', '2017-06-18T13:00', '2017-06-18T14:00', '2017-06-18T15:00', '2017-06-18T16:00', '2017-06-18T17:00'];
 
 		for (var i = 0; i < 6; i++) {
 			getAllResponsesPerCard(timeSlots[i], timeSlots[i+1]);
 		}
-	});
+	});	
 }
 
 function findDialogueId(cardid){
@@ -491,6 +535,39 @@ function findDialogueId(cardid){
 			}
 		}			
 	}
+
+}
+
+function getResponsesByDialogueID(dialogueId) {
+	var ref = firebaseDB.ref("responses");
+	var table = {};
+	var query = ref.orderByChild("dialogueId").equalTo(dialogueId);
+	query.once('value', function(snapshot) {
+		snapshot.forEach(function(childSnapshot) {
+			var childKey = childSnapshot.key;
+			let oneResponse = childSnapshot.val();	
+			// console.log("one response: ", oneResponse);	
+			firebaseDB.ref("cards").orderByKey().equalTo(oneResponse.cardId).once('value', function(snapshot) {
+
+	    		let aCard = snapshot.val();
+
+	    		let aCardValue;
+	    		let cardid;
+	    		for(var k in aCard){
+	    			cardid = k;
+	    			aCardValue = aCard[k];
+	    		}
+	    		let title = aCardValue['title'];
+
+
+		    	contentToWrite+=dialogueId + ',';
+		    	contentToWrite+=oneResponse.pi_timestamp + ',';
+	    		contentToWrite+=escapeCsvString(cardid) + ',';
+	    		contentToWrite+=escapeCsvString(title)+',';
+	    		contentToWrite+=oneResponse.value + "\n";
+			});	
+		});
+	});
 
 }
 
@@ -571,7 +648,7 @@ function fillColumns(result, startTime){
 
 function writeToCsv(content){
 	var fs = require('fs');
-	fs.writeFile("/csv/Responses.csv", content, function(err) {
+	fs.writeFile("Responses.csv", content, function(err) {
 
 		if(err) return console.log(err);
 		console.log("============The record was saved!========");
